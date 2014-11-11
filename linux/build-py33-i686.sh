@@ -1,6 +1,5 @@
 #!/bin/bash
 
-OPENSSL_VERSION=1.0.1g
 PYTHON_VERSION=3.3.5
 LIBFFI_VERSION=3.0.13
 
@@ -27,11 +26,10 @@ DEPS_DIR="${LINUX_DIR}/deps"
 BUILD_DIR="${LINUX_DIR}/py33-i686"
 STAGING_DIR="$BUILD_DIR/staging"
 BIN_DIR="$STAGING_DIR/bin"
-TMP_DIR="$BUILD_DIR/tmp"
 OUT_DIR="$BUILD_DIR/../../out/py33_linux_x32"
 
 export LDFLAGS="-Wl,-rpath='\$\$ORIGIN/' -Wl,-rpath=${STAGING_DIR}/lib -L${STAGING_DIR}/lib"
-export CPPFLAGS="-I${STAGING_DIR}/include -I${STAGING_DIR}/include/openssl -I${STAGING_DIR}/lib/libffi-${LIBFFI_VERSION}/include/"
+export CPPFLAGS="-I${STAGING_DIR}/include -I${STAGING_DIR}/lib/libffi-${LIBFFI_VERSION}/include/"
 
 mkdir -p $DEPS_DIR
 mkdir -p $BUILD_DIR
@@ -39,9 +37,6 @@ mkdir -p $STAGING_DIR
 
 LIBFFI_DIR="${DEPS_DIR}/libffi-$LIBFFI_VERSION"
 LIBFFI_BUILD_DIR="${BUILD_DIR}/libffi-$LIBFFI_VERSION"
-
-OPENSSL_DIR="${DEPS_DIR}/openssl-$OPENSSL_VERSION"
-OPENSSL_BUILD_DIR="${BUILD_DIR}/openssl-$OPENSSL_VERSION"
 
 PYTHON_DIR="${DEPS_DIR}/Python-$PYTHON_VERSION"
 PYTHON_BUILD_DIR="${BUILD_DIR}/Python-$PYTHON_VERSION"
@@ -63,56 +58,6 @@ download() {
         curl -O "$1"
     fi
 }
-
-if [[ ! -e $OPENSSL_DIR ]]; then
-    cd $DEPS_DIR
-    download "http://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz"
-    tar xvfz openssl-$OPENSSL_VERSION.tar.gz
-    rm openssl-$OPENSSL_VERSION.tar.gz
-    cd $LINUX_DIR
-fi
-
-if [[ ! -e $OPENSSL_BUILD_DIR ]] || [[ $CLEAN_SSL != "" ]]; then
-    if [[ -e $OPENSSL_BUILD_DIR ]]; then
-        rm -R $OPENSSL_BUILD_DIR
-    fi
-    cp -R $OPENSSL_DIR $BUILD_DIR
-
-    cd $OPENSSL_BUILD_DIR
-
-    patch -p0 < $LINUX_DIR/patch/patch-cms
-    patch -p0 < $LINUX_DIR/patch/patch-smime
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_accept
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_clear
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_COMP_add_compression_method
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_connect
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_CTX_add_session
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_CTX_load_verify_locations
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_CTX_set_client_CA_list
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_CTX_set_session_id_context
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_CTX_set_ssl_version
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_CTX_use_psk_identity_hint
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_do_handshake
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_read
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_session_reused
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_set_fd
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_set_session
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_shutdown
-    patch -p0 < $LINUX_DIR/patch/patch-SSL_write
-    ./config shared enable-static-engine no-md2 no-rc5 no-ssl2 --prefix=$STAGING_DIR -Wl,--version-script=openssl.ld -Wl,-Bsymbolic-functions -Wl,-rpath=XORIGIN/ -Wl,-rpath=${STAGING_DIR}/lib -fPIC
-    echo 'OPENSSL_1.0.1G_PYTHON {
-    global:
-        *;
-};
-' > openssl.ld
-    make depend
-    make
-    chrpath -r "\$ORIGIN/:${STAGING_DIR}/lib" libssl.so.1.0.0
-    chrpath -r "\$ORIGIN/:${STAGING_DIR}/lib" libcrypto.so.1.0.0
-    make install
-
-    cd $LINUX_DIR
-fi
 
 if [[ ! -e $LIBFFI_DIR ]]; then
     cd $DEPS_DIR
@@ -152,45 +97,3 @@ cd $PYTHON_BUILD_DIR
 ./configure --prefix=$STAGING_DIR
 make
 make install
-
-cd $LINUX_DIR
-
-
-cd $DEPS_DIR
-
-if [[ ! -e ./get-pip.py ]]; then
-    download "https://bootstrap.pypa.io/get-pip.py"
-fi
-
-$BIN_DIR/python3.3 ./get-pip.py
-
-# Since this doesn't use make, we change the rpath to use a single $
-export LDFLAGS="-Wl,-rpath='\$ORIGIN/' -Wl,-rpath=${STAGING_DIR}/lib -L${STAGING_DIR}/lib"
-
-if [[ $($BIN_DIR/pip3.3 list | grep pyopenssl) != "" ]]; then
-    $BIN_DIR/pip3.3 uninstall -y pyopenssl
-fi
-if [[ $($BIN_DIR/pip3.3 list | grep cryptography) != "" ]]; then
-    $BIN_DIR/pip3.3 uninstall -y cryptography
-fi
-
-rm -Rf $TMP_DIR
-$BIN_DIR/pip3.3 install --build $TMP_DIR cryptography pyopenssl
-
-CRYPTOGRAPHY_VERSION=$($BIN_DIR/pip3.3 show cryptography | grep Version | sed 's/Version: //')
-PYOPENSSL_VERSION=$($BIN_DIR/pip3.3 show pyopenssl | grep Version | sed 's/Version: //')
-
-rm -Rf $OUT_DIR
-mkdir -p $OUT_DIR
-
-cp $STAGING_DIR/lib/libcrypto.so.1.0.0 $OUT_DIR/
-cp $STAGING_DIR/lib/libssl.so.1.0.0 $OUT_DIR/
-cp $STAGING_DIR/lib/python3.3/site-packages/six.py $OUT_DIR/
-cp -R $STAGING_DIR/lib/python3.3/site-packages/OpenSSL $OUT_DIR/
-cp -R $STAGING_DIR/lib/python3.3/site-packages/cryptography $OUT_DIR/
-cp -R $STAGING_DIR/lib/python3.3/site-packages/cffi $OUT_DIR/
-cp -R $STAGING_DIR/lib/python3.3/site-packages/pycparser $OUT_DIR/
-cp $STAGING_DIR/lib/python3.3/site-packages/_cffi_backend.cpython-33m.so $OUT_DIR/
-
-cd $OUT_DIR
-tar cvzpf ../cryptography-${CRYPTOGRAPHY_VERSION}_pyopenssl-${PYOPENSSL_VERSION}_openssl-${OPENSSL_VERSION}_py33_linux-x32.tar.gz *

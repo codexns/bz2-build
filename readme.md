@@ -1,15 +1,6 @@
-# Python cryptography Build
+# Python bz2 Build
 
-A project for building the following packages:
-
- - cryptography
- - pyopenssl
-
-along with:
-
- - OpenSSL
-
-for the operating systems:
+A project for building the `_bz2` Python package for:
 
  - Windows x86
  - Windows x64
@@ -21,7 +12,3 @@ and the following versions of Python:
 
  - 2.6
  - 3.3
-
-## Downloads
-
-See https://github.com/wbond/python-cryptography-build/releases for downloads.
