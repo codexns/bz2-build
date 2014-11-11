@@ -1,9 +1,6 @@
 #!/bin/bash
 
 PYTHON_VERSION=3.3.5
-LIBFFI_VERSION=3.0.13
-
-CLEAN_SSL=$1
 
 set -e
 
@@ -29,14 +26,12 @@ BIN_DIR="$STAGING_DIR/bin"
 OUT_DIR="$BUILD_DIR/../../out/py33_linux_x64"
 
 export LDFLAGS="-Wl,-rpath='\$\$ORIGIN/' -Wl,-rpath=${STAGING_DIR}/lib -L${STAGING_DIR}/lib -L/usr/lib/x86_64-linux-gnu"
-export CPPFLAGS="-I${STAGING_DIR}/include -I${STAGING_DIR}/lib/libffi-${LIBFFI_VERSION}/include/"
+export CPPFLAGS="-I${STAGING_DIR}/include"
 
 mkdir -p $DEPS_DIR
 mkdir -p $BUILD_DIR
 mkdir -p $STAGING_DIR
-
-LIBFFI_DIR="${DEPS_DIR}/libffi-$LIBFFI_VERSION"
-LIBFFI_BUILD_DIR="${BUILD_DIR}/libffi-$LIBFFI_VERSION"
+mkdir -p $OUT_DIR
 
 PYTHON_DIR="${DEPS_DIR}/Python-$PYTHON_VERSION"
 PYTHON_BUILD_DIR="${BUILD_DIR}/Python-$PYTHON_VERSION"
@@ -59,24 +54,6 @@ download() {
     fi
 }
 
-if [[ ! -e $LIBFFI_DIR ]]; then
-    cd $DEPS_DIR
-    download "ftp://sourceware.org/pub/libffi/libffi-$LIBFFI_VERSION.tar.gz"
-    tar xvfz libffi-$LIBFFI_VERSION.tar.gz
-    rm libffi-$LIBFFI_VERSION.tar.gz
-    cd $LINUX_DIR
-fi
-
-if [[ -e $LIBFFI_BUILD_DIR ]]; then
-    rm -R $LIBFFI_BUILD_DIR
-fi
-cp -R $LIBFFI_DIR $BUILD_DIR
-
-cd $LIBFFI_BUILD_DIR
-./configure --disable-shared --prefix=${STAGING_DIR} CFLAGS=-fPIC
-make
-make install
-
 cd $LINUX_DIR
 
 if [[ ! -e $PYTHON_DIR ]]; then
@@ -97,3 +74,7 @@ cd $PYTHON_BUILD_DIR
 ./configure --prefix=$STAGING_DIR
 make
 make install
+
+cp build/lib.linux-x86_64-3.3/_bz2.cpython-33m.so $OUT_DIR/
+
+cd $LINUX_DIR
